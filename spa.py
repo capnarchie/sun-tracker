@@ -1,4 +1,4 @@
-from cmath import sin
+from cmath import acos, sin, tan
 import math
 
 from numpy import rad2deg
@@ -31,7 +31,24 @@ def HRA(LST):
     return 15*(LST-12) #deg
     
 
+
 # placeholder currently figure out formula for this
 declination_angle = rad2deg(-23.45*math.cos((360/365)*(days_since_start_of_year+10)))
 
-angle = rad2deg(math.asin(sin(declination_angle)*sin(current_latitude) + math.cos(declination_angle)*math.cos(current_latitude)*math.cos(HRA(LST(local_time, TC(LSTM(),current_longtitude, eot(days_since_start_of_year)))))))
+#sunrise = 12 - (1/15) * rad2deg(acos(-tan(current_latitude)*tan(declination_angle))) - TC(LSTM(),current_longtitude, eot(days_since_start_of_year))
+#sunset = 12 + (1/15) * rad2deg(acos(-tan(current_latitude)*tan(declination_angle))) - TC(LSTM(),current_longtitude, eot(days_since_start_of_year))
+
+#angle = rad2deg(math.asin(sin(declination_angle)*sin(current_latitude) + math.cos(declination_angle)*math.cos(current_latitude)*math.cos(HRA(LST(local_time, TC(LSTM(),current_longtitude, eot(days_since_start_of_year)))))))
+
+
+while True:
+    
+    angle = rad2deg(math.asin(sin(declination_angle)*sin(current_latitude) + math.cos(declination_angle)*math.cos(current_latitude)*math.cos(HRA(LST(local_time, TC(LSTM(),current_longtitude, eot(days_since_start_of_year)))))))
+    if angle > 0: # add comparison to our positional reference
+        # move motors closer to the sun
+        # put cpu to sleep for 15 min
+        pass
+    
+    if angle <= 0:
+        #calculate new sunrise and put CPU to deep sleep
+        sunrise = 12 - (1/15) * rad2deg(acos(-tan(current_latitude)*tan(declination_angle))) - TC(LSTM(),current_longtitude, eot(days_since_start_of_year))
