@@ -14,14 +14,16 @@ static void SPI0_init(void);
 static void clientSelect(void);
 static void clientDeselect(void);
 static uint8_t SPI0_exchangeData(uint8_t data);
+static void rtcc_write_reg(uint8_t reg, uint8_t data);
+uint8_t rtcc_read_reg(uint8_t reg);
+void rtcc_init();
 
-//https://github.com/microchip-pic-avr-examples/atmega4809-getting-started-with-spi-studio/tree/master/Sending_Data_as_Host
 static void SPI0_init(void)
 {
 	PORTA.DIR |= PIN4_bm; /* Set MOSI pin direction to output */
 	PORTA.DIR &= ~PIN5_bm; /* Set MISO pin direction to input */
 	PORTA.DIR |= PIN6_bm; /* Set SCK pin direction to output */
-	PORTA.DIR |= PIN7_bm; /* Set SS pin direction to output */
+	PORTA.DIR |= PIN2_bm; /* Set SS pin direction to output */
 
 	SPI0.CTRLA = SPI_CLK2X_bm           /* Enable double-speed */
 	| SPI_DORD_bm            /* LSB is transmitted first */
@@ -29,7 +31,7 @@ static void SPI0_init(void)
 	| SPI_MASTER_bm          /* SPI module in Master mode */
 	| SPI_PRESC_DIV16_gc;    /* System Clock divided by 16 */
 }
-
+//https://github.com/microchip-pic-avr-examples/atmega4809-getting-started-with-spi-studio/tree/master/Sending_Data_as_Host
 static uint8_t SPI0_exchangeData(uint8_t data)
 {
 	SPI0.DATA = data;
@@ -44,20 +46,20 @@ static uint8_t SPI0_exchangeData(uint8_t data)
 
 static void rtcc_write_reg(uint8_t reg, uint8_t data)
 {
-	//select rtcc
-	SPI0_exchangeData(reg)// send register address
-	SPI0_exchangeData(data) // send the data to write to register
-	// deselect the rtcc
+	clientSelect();//select rtcc
+	SPI0_exchangeData(reg);// send register address
+	SPI0_exchangeData(data); // send the data to write to register
+	clientDeselect();// deselect the rtcc
 }
 
 uint8_t rtcc_read_reg(uint8_t reg)
 {
 	uint8_t data;
 	uint8_t temp;
-	//select rtcc
-	temp = SPI0_exchangeData(reg) // send register address
-	data = SPI0_exchangeData(0x00) //send dummy byte to receive
-	// deselect rtcc
+	clientSelect();//select rtcc
+	temp = SPI0_exchangeData(reg); // send register address
+	data = SPI0_exchangeData(0x00); //send dummy byte to receive
+	clientDeselect();//deselect rtcc
 	return data;
 	
 }
@@ -76,23 +78,24 @@ void rtcc_init(){
 
 static void clientSelect(void)
 {
-	PORTA.OUT &= ~PIN7_bm; // Set SS pin value to LOW
+	PORTA.OUT &= ~PIN2_bm; // Set SS pin value to LOW
 }
 
 static void clientDeselect(void)
 {
-	PORTA.OUT |= PIN7_bm; // Set SS pin value to HIGH
+	PORTA.OUT |= PIN2_bm; // Set SS pin value to HIGH
 }
 
 int main(void)
 {
 	uint8_t data = 0;
 	SPI0_init();
-
+	rtcc_init();
 	while (1)
 	{
-		clientSelect();
-		SPI0_exchangeData(data);
-		clientDeselect();
+		//clientSelect();
+		//rtcc_init();
+		//SPI0_exchangeData(data);
+		//clientDeselect();
 	}
 }
