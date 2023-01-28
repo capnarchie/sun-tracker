@@ -1,3 +1,10 @@
+/*
+ * main.c
+ *
+ * Created: 1/25/2023 9:42:10 AM
+ *  Author: Uku
+ */ 
+
 #include <xc.h>
 
 
@@ -8,6 +15,7 @@
 #include <stdio.h>
 #include <util/delay.h>
 #include <string.h>
+#include <avr/interrupt.h>
 
 #define RTCC_SECONDS_REG 0x01
 #define RTCC_MINUTES_REG 0x02
@@ -64,11 +72,15 @@ static void SPI0_init(void)
 	PORTA.DIR |= PIN6_bm; /* Set SCK pin direction to output */
 	PORTA.DIR |= PIN2_bm; /* Set SS pin direction to output */
 
+	SPI0_CTRLB |= SPI_SSD_bm;
+
 	SPI0.CTRLA = SPI_CLK2X_bm           /* Enable double-speed */
 	| 0//SPI_DORD_bm             /* MSB is transmitted first */
 	| SPI_ENABLE_bm          /* Enable module */
 	| SPI_MASTER_bm          /* SPI module in Master mode */
-	| SPI_PRESC_DIV16_gc;    /* System Clock divided by 16 */
+	| SPI_PRESC_DIV4_gc;    /* System Clock divided by 4 */
+	
+	SPI0.CTRLA |= SPI_MASTER_bm;
 }
 //https://github.com/microchip-pic-avr-examples/atmega4809-getting-started-with-spi-studio/tree/master/Sending_Data_as_Host
 static uint8_t SPI0_exchangeData(uint8_t data)
@@ -79,7 +91,7 @@ static uint8_t SPI0_exchangeData(uint8_t data)
 	{
 		;
 	}
-
+	//SPI0.INTFLAGS = SPI_IF_bm;
 	return SPI0.DATA;
 }
 
@@ -116,9 +128,9 @@ void rtcc_init(){
 
 	
 	//sets year to jan 1 2000 clock: 00:00:00
-	rtcc_write_reg(RTCC_SECONDS_REG, 0x01);
-	rtcc_write_reg(RTCC_MINUTES_REG, 0x01);
-	rtcc_write_reg(RTCC_HOURS_REG, 0x01);
+	rtcc_write_reg(RTCC_SECONDS_REG, 0x00);
+	rtcc_write_reg(RTCC_MINUTES_REG, 0x00);
+	rtcc_write_reg(RTCC_HOURS_REG, 0x00);
 	rtcc_write_reg(RTCC_DAY_REG, 0x01);
 	rtcc_write_reg(RTCC_DATE_REG, 0x01);
 	rtcc_write_reg(RTCC_MONTH_REG, 0x01);
@@ -126,8 +138,7 @@ void rtcc_init(){
 	//
 	rtcc_write_reg(RTCC_CONTROL_REG, 1<<3); // Enable EXTOSC
 	rtcc_write_reg(RTCC_SECONDS_REG, 1<<7); //Write ST to 1 aka Start oscillator(bit7)
-	//rtcc_write_reg(RTCC_DAY_REG, (RTCC_DAY_REG | 1<<3)); // Write VBATEN to 1 aka enable battery backup to access rtcc features(bit3)
-	
+
 	clientDeselect();
 }
 
@@ -146,11 +157,14 @@ void get_time(uint8_t* seconds, uint8_t* minutes, uint8_t* hours, uint8_t* day, 
 
 static void clientSelect(void)
 {
+	PORTC.DIR |= PIN2_bm; // set SS pin as output
 	PORTC.OUT &= ~PIN2_bm; // Set SS pin value to LOW(RTCC)
+	PORTC.PIN2CTRL |= PORT_PULLUPEN_bm;
 }
 
 static void clientDeselect(void)
 {
+	PORTC.DIR &= ~PIN2_bm; // set SS pin as input
 	PORTC.OUT |= PIN2_bm; // Set SS pin value to HIGH(RTCC)
 }
 
@@ -172,9 +186,12 @@ void send_time_string_over_uart(void)
 int main(void)
 {
 	uint8_t data = 0;
+	sei();
 	SPI0_init();
 	USART0_init();
 	rtcc_init();
+	//
+	//sei();
 	while (1)
 	{
 		send_time_string_over_uart();
