@@ -1,3 +1,10 @@
+/*
+ * main.c
+ *
+ * Created: 1/25/2023 9:42:10 AM
+ *  Author: Uku
+ */ 
+
 #include <xc.h>
 
 
@@ -19,7 +26,7 @@
 #define RTCC_YEAR_REG 0x07
 #define RTCC_CONTROL_REG 0x08
 
-//prototypes
+//prototypes if converting to header
 static void SPI0_init(void);
 static void clientSelect(void);
 static void clientDeselect(void);
@@ -56,7 +63,13 @@ void USART0_sendString(char *str)
 	}
 }
 
-
+//
+//void USART0_sendInt(uint8_t num)
+//{
+    //char buffer[16]; // buffer to store the string representation of the int
+    //snprintf(buffer, sizeof(buffer), "%d", num); // convert the int to a string
+    //USART0_sendString(buffer); // send the string
+//}
 
 static void SPI0_init(void)
 {
@@ -65,10 +78,10 @@ static void SPI0_init(void)
 	PORTA.DIR |= PIN6_bm; /* Set SCK pin direction to output */
 	PORTA.DIR |= PIN2_bm; /* Set SS pin direction to output */
 
-	SPI0_CTRLB |= SPI_SSD_bm; // disable SS line in master mode and dont let it disable master mode
-
+	SPI0_CTRLB |= SPI_SSD_bm; // Disable Master slave transition on SS pin
+	//SPI0_CTRLB |= ~SPI_MODE0_bm;
 	SPI0.CTRLA = SPI_CLK2X_bm           /* Enable double-speed */
-	| 0//SPI_DORD_bm             /* MSB is transmitted first */
+	| 0						 /* MSB is transmitted first */
 	| SPI_ENABLE_bm          /* Enable module */
 	| SPI_MASTER_bm          /* SPI module in Master mode */
 	| SPI_PRESC_DIV4_gc;    /* System Clock divided by 4 */
@@ -90,60 +103,52 @@ static uint8_t SPI0_exchangeData(uint8_t data)
 
 static void rtcc_write_reg(uint8_t reg, uint8_t data)
 {
-	uint8_t temp;
-	//clientSelect();//select rtcc
+	clientSelect();//select rtcc
 	SPI0_exchangeData(0b00010010); // write command
 	SPI0_exchangeData(reg);// send register address
 	SPI0_exchangeData(data); // send the data to write to register
-	//clientDeselect();// deselect the rtcc
+	clientDeselect();// deselect the rtcc
 }
 
 uint8_t rtcc_read_reg(uint8_t reg)
 {
 	uint8_t data;
-	uint8_t temp;
-	//clientSelect();//select rtcc
+	clientSelect();//select rtcc
 	SPI0_exchangeData(0b00010011); //read command
 	SPI0_exchangeData(reg); // send register address
 	data = SPI0_exchangeData(0x00); //send dummy byte to receive
-	//clientDeselect();//deselect rtcc
+	clientDeselect();//deselect rtcc
 	return data;
 	
 }
 
 void rtcc_init(){
-	clientSelect();
+	//clientSelect();
+
 	volatile uint8_t seconds = rtcc_read_reg(RTCC_SECONDS_REG);
 	seconds = seconds & ~(1<<6);
 	
 	rtcc_write_reg(RTCC_SECONDS_REG, seconds); //Write ST to 0 aka disable oscillator(bit7)
-	
-	
+
 	//rtcc_write_reg(RTCC_CONTROL_REG, rtcc_read_reg(RTCC_CONTROL_REG) | ~(1<<3));
 	volatile uint8_t control = rtcc_read_reg(RTCC_CONTROL_REG);
 	control = control & ~(1<<2);//disable extosc
 	rtcc_write_reg(RTCC_CONTROL_REG, control);
 	//rtcc_write_reg(RTCC_CONTROL_REG, ~(1<<3)); // Disable EXTOSC
-	while (rtcc_read_reg(RTCC_DAY_REG) & (1<<5));
-	//while (!(rtcc_read_reg(RTCC_DAY_REG) & (1<<5))); // wait OSCRUN to clear
-	
-	//sets time
-	rtcc_write_reg(RTCC_SECONDS_REG, 0x00);
-	rtcc_write_reg(RTCC_MINUTES_REG, 0x00);
-	rtcc_write_reg(RTCC_HOURS_REG, 0x12);
-	rtcc_write_reg(RTCC_DAY_REG, 0x00);
-	rtcc_write_reg(RTCC_DATE_REG, 0x1C);
-	rtcc_write_reg(RTCC_MONTH_REG, 0x01);
-	rtcc_write_reg(RTCC_YEAR_REG, 0x17);
-	//
-	//rtcc_write_reg(RTCC_CONTROL_REG, 1<<3); // Enable EXTOSC
-	//rtcc_write_reg(RTCC_SECONDS_REG, 1<<7); //Write ST to 1 aka Start oscillator(bit7)
-	
-	// Enable ST bit
-	//rtcc_write_reg(RTCC_SECONDS_REG, rtcc_read_reg(RTCC_SECONDS_REG) | (1<<7));
-    // Enable external oscillator
-    //rtcc_write_reg(RTCC_CONTROL_REG, rtcc_read_reg(RTCC_CONTROL_REG) | (1<<3));
+	volatile uint8_t OSCRUNNING = rtcc_read_reg(RTCC_DAY_REG);
+	while (rtcc_read_reg(RTCC_DAY_REG) & (1<<5)); //wait OSCRUN to clear after EXTOSC disable
 
+	
+	// Set time to 22:35:30 28-01-2023
+	rtcc_write_reg(RTCC_SECONDS_REG, 0b00110000);//0b10110000);
+	rtcc_write_reg(RTCC_MINUTES_REG, 0b00110101);
+	rtcc_write_reg(RTCC_HOURS_REG, 0b00100010);
+	rtcc_write_reg(RTCC_DAY_REG, 0b00100110);
+	rtcc_write_reg(RTCC_DATE_REG, 0b00101000);
+	rtcc_write_reg(RTCC_MONTH_REG, 0b00000001);
+	rtcc_write_reg(RTCC_YEAR_REG, 0b00100011);
+	//
+	
 	seconds = rtcc_read_reg(RTCC_SECONDS_REG);
 	seconds |= 1<<7;
 	rtcc_write_reg(RTCC_SECONDS_REG, seconds);
@@ -151,20 +156,23 @@ void rtcc_init(){
 	control = rtcc_read_reg(RTCC_CONTROL_REG);
 	control |= 1<<3;
 	rtcc_write_reg(RTCC_CONTROL_REG, control);
+	//rtcc_write_reg(RTCC_CONTROL_REG, 1<<3); // Enable EXTOSC
+	//rtcc_write_reg(RTCC_SECONDS_REG, 1<<7); //Write ST to 1 aka Start oscillator(bit7)
+	
+	// Enable ST bit
+	//rtcc_write_reg(RTCC_SECONDS_REG, rtcc_read_reg(RTCC_SECONDS_REG) | (1<<7));
+    // Enable external oscillator
+    //rtcc_write_reg(RTCC_CONTROL_REG, rtcc_read_reg(RTCC_CONTROL_REG) | (1<<4));
+
     // Wait for OSCRUN to clear
     while (rtcc_read_reg(RTCC_DAY_REG) & (1<<5));
 
-	clientDeselect();
-}
-
-uint8_t bcd_to_dec(uint8_t bcd)
-{
-	return (bcd >> 4) * 10 + (bcd & 0xF);
+	//clientDeselect();
 }
 
 void get_time(uint8_t* seconds, uint8_t* minutes, uint8_t* hours, uint8_t* day, uint8_t* date, uint8_t* month, uint8_t* year)
 {
-	clientSelect();
+	//clientSelect();
 	*seconds = rtcc_read_reg(RTCC_SECONDS_REG);
 	*minutes = rtcc_read_reg(RTCC_MINUTES_REG);
 	*hours = rtcc_read_reg(RTCC_HOURS_REG);
@@ -173,17 +181,16 @@ void get_time(uint8_t* seconds, uint8_t* minutes, uint8_t* hours, uint8_t* day, 
 	*month = rtcc_read_reg(RTCC_MONTH_REG);
 	*year = rtcc_read_reg(RTCC_YEAR_REG);
 	
+	// BCD decode
 	*seconds = (*seconds & 0xF) + ((*seconds >> 4) & 0x7) * 10;
-	//*seconds = ( (*seconds & 0xF) + ((*seconds >> 4) * 10) );
-	*minutes = ( (*minutes & 0xF) + ((*minutes >> 4) * 10) );
-	*hours = ( (*hours & 0xF) + ((*hours >> 4) * 10) );
-	*day = ( (*day & 0xF) + ((*day >> 4) * 10) );
+	*minutes = (*minutes & 0xF) + ((*minutes >> 4) & 0x7) * 10;
+	*hours = ((*hours >> 4) & 0x03) * 10 + (*hours & 0b1111);
 	*date = ( (*date & 0xF) + ((*date >> 4) * 10) );
-	*month = ( (*month & 0xF) + ((*month >> 4) * 10) );
-	*year = ( (*year & 0xF) + ((*year >> 4) * 10) );
+	*month = ((*month & 0b00011000) >> 3) * 10 + (*month & 0b00001111);
+	*year = ((*year & 0xF0) >> 4) * 10 + (*year & 0x0F);
 	
 	
-	clientDeselect();
+	//clientDeselect();
 }
 
 static void clientSelect(void)
@@ -197,11 +204,11 @@ static void clientDeselect(void)
 {
 	PORTC.DIR &= ~PIN2_bm; // set SS pin as input
 	PORTC.OUT |= PIN2_bm; // Set SS pin value to HIGH(RTCC)
+	PORTC.PIN2CTRL &= ~PORT_PULLUPEN_bm;
 }
 
 int main(void)
 {
-	uint8_t data = 0;
 	uint8_t seconds, minutes, hours, day, date, month, year;
 	char time_string[20];
 	sei();
@@ -213,8 +220,10 @@ int main(void)
 	while (1)
 	{
 		get_time(&seconds, &minutes, &hours, &day, &date, &month, &year);
-		//sprintf(time_string, "Aeg: %02d:%02d:%02d %02d-%02d-%02d\n", hours, minutes, seconds, date, month, year);
-		sprintf(time_string, "%02d", seconds);
+		sprintf(time_string, "Aeg: %02d:%02d:%02d %02d-%02d-%02d\n", hours, minutes, seconds, date, month, year);
+		//sprintf(time_string, "%d", seconds);
+		//seconds = (char)seconds;
+		//USART0_sendChar(seconds);
 		
 		USART0_sendString(time_string);
 		_delay_ms(1000);
