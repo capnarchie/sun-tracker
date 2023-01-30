@@ -1,3 +1,41 @@
+//#include <math.h>
+//
+//#define pi 3.14159265
+//
+//double get_declination(int day, int month)
+//{
+  //double epsilon = pi/180 * 23.44 * cos(2 * pi * (day + 284) / 365);
+  //double lambda = 2 * pi * (day - 81) / 365;
+  //double delta = asin(sin(epsilon) * sin(lambda));
+  //return delta;
+//}
+//
+//double get_hour_angle(int hour, int minute)
+//{
+  //double t = hour + minute / 60.0 - 12;
+  //double ha = pi / 12 * t;
+  //return ha;
+//}
+//
+//void get_sun_angles(double lat, double lon, int day, int month, int hour, int minute, double *elevation, double *azimuth)
+//{
+  //double delta = get_declination(day, month);
+  //double ha = get_hour_angle(hour, minute);
+  //double h = asin(sin(lat * pi / 180) * sin(delta) + cos(lat * pi / 180) * cos(delta) * cos(ha));
+  //*elevation = h * 180 / pi;
+  //double a = asin(-sin(ha) * cos(delta) / cos(h));
+  //*azimuth = a * 180 / pi + 180;
+//}
+//
+//int main()
+//{
+  //double lat = 58, lon = 26;
+  //int day = 29, month = 1, hour = 18, minute = 30;
+  //double elevation, azimuth;
+  //get_sun_angles(lat, lon, day, month, hour, minute, &elevation, &azimuth);
+  ////printf("Elevation: %f\nAzimuth: %f\n", elevation, azimuth);
+  //return 0;
+//}
 #define F_CPU 3333333
 #define USART0_BAUD_RATE(BAUD_RATE) ((float)(F_CPU * 64 / (16 * (float)BAUD_RATE)) + 0.5)
 
@@ -28,7 +66,7 @@ void encoder_init() {
 	//PORTD.DIR |= (ENCODER_CH_1A_PIN | ENCODER_CH_1B_PIN);
 	PORTD.PIN2CTRL |= PORT_PULLUPEN_bm;
 	PORTD.PIN3CTRL |= PORT_PULLUPEN_bm;
-	PORTD.OUT |= ENCODER_CH_1A_PIN | ENCODER_CH_1B_PIN; 
+	PORTD.OUT |= ENCODER_CH_1A_PIN | ENCODER_CH_1B_PIN;
 	PORTD.PIN2CTRL |= PORT_ISC_RISING_gc; // trigger interrupt on rising
 	PORTD.PIN3CTRL |= PORT_ISC_RISING_gc;
 	sei();
@@ -171,8 +209,8 @@ void rtcc_init(){
 	control |= 1<<3;
 	rtcc_write_reg(RTCC_CONTROL_REG, control);
 
-    // Wait for OSCRUN to clear
-    while (rtcc_read_reg(RTCC_DAY_REG) & (1<<5));
+	// Wait for OSCRUN to clear
+	while (rtcc_read_reg(RTCC_DAY_REG) & (1<<5));
 
 	//clientDeselect();
 }
@@ -200,14 +238,14 @@ void get_time(uint8_t* seconds, uint8_t* minutes, uint8_t* hours, uint8_t* day, 
 	//clientDeselect();
 }
 
-static void clientSelect(void)
+void clientSelect(void)
 {
 	PORTC.DIR |= PIN2_bm; // set SS pin as output
 	PORTC.OUT &= ~PIN2_bm; // Set SS pin value to LOW(RTCC)
 	PORTC.PIN2CTRL |= PORT_PULLUPEN_bm;
 }
 
-static void clientDeselect(void)
+void clientDeselect(void)
 {
 	PORTC.DIR &= ~PIN2_bm; // set SS pin as input
 	PORTC.OUT |= PIN2_bm; // Set SS pin value to HIGH(RTCC)
@@ -222,8 +260,8 @@ int main(void)
 	SPI0_init();
 	USART0_init();
 	rtcc_init();
-  
-  encoder_init();
+	
+	encoder_init();
 	PORTD.DIR |= PIN0_bm; // Motor 1 Forward
 	PORTD.DIR |= PIN1_bm; // Motor 1 Backward
 	//PORTD.DIR |= PIN2_bm; // Motor 1 Encoder A
@@ -240,15 +278,15 @@ int main(void)
 	//sei();
 	while (1)
 	{
-    while (PORTA.IN & (1<<2) || PORTA.IN & (1<<3)) // Check if either of the switch has been pressed
+		while (PORTA.IN & (1<<2) || PORTA.IN & (1<<3)) // Check if either of the switch has been pressed
 		{
 			PORTD.OUT = 0; // kill everything
 		}
-    
+		
 		get_time(&seconds, &minutes, &hours, &day, &date, &month, &year);
 		sprintf(time_string, "Aeg: %02d:%02d:%02d %02d-%02d-%02d\n", hours, minutes, seconds, date, month, year);
 		
 		USART0_sendString(time_string);
-		_delay_ms(1000);
+		//_delay_ms(1000);
 	}
 }
